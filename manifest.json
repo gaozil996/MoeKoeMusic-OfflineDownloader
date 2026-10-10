@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "离线下载器",
+  "plugin_id": "offline-downloader",
+  "version": "1.0.0",
+  "description": "离线下载器：单曲下载 + 歌单批量下载。走本地 API 取流，支持 标准/高品/无损/Hi-Res 四档音质；通过插件自带本地程序直接写入 D:\\MoeKoeMusic，不弹保存框，存完离线可播。",
+  "moekoe": true,
+  "minversion": "1.7.0",
+  "author": {
+    "name": "SHIYI",
+    "url": "https://github.com/MoeKoeMusic/MoeKoeMusic"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "moekoe_permissions": [
+    "moekoe:nativeHost"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "local-index.js",
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "moekoe_native_hosts": [
+    {
+      "id": "offline-dl-saver",
+      "auto_start": true,
+      "bridge": "bridge.html",
+      "platforms": {
+        "win32": {
+          "path": "host/moekoe-saver.exe",
+          "args": []
+        }
+      }
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "bridge.html",
+        "bridge.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

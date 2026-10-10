@@ -1,0 +1,11 @@
+# MoeKoe loads these files straight off disk on Windows. Normalising line
+# endings would change the bytes it actually reads, and there is no build
+# step to undo it, so everything is stored verbatim.
+* -text
+
+# These must stay byte-identical too: native hosts are loaded by path, and
+# the .cs files are read by csc using the SYSTEM CODEPAGE (GBK on a Chinese
+# Windows) rather than UTF-8.
+*.exe binary
+*.dll binary
+*.cs  -text

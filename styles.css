@@ -1,0 +1,592 @@
+/* The toggle lives on the dark player bar, NOT on the light panel, so it
+   needs a LIGHT glyph. The panel's secondary text was darkened separately
+   below; applying that value here dropped the arrow to 2.7:1 on #1a1a1a. */
+.odl-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 4px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #b0b0b0;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+
+.odl-toggle:hover {
+  background: rgba(0, 0, 0, .06);
+  color: #ff4d8d;
+}
+
+.odl-panel {
+  position: fixed;
+  right: 384px;
+  bottom: 92px;
+  z-index: 99999;
+  width: 408px;
+  max-height: 78vh;
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .22);
+  font-family: -apple-system, "Microsoft YaHei", sans-serif;
+  color: #333;
+  backdrop-filter: blur(8px);
+}
+
+.odl-panel.odl-hidden {
+  display: none;
+}
+
+.odl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(0, 0, 0, .08);
+}
+
+.odl-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ff4d8d;
+}
+
+.odl-title small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: #6f6f6f;
+}
+
+.odl-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #6f6f6f;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.odl-close:hover {
+  background: rgba(0, 0, 0, .07);
+  color: #333;
+}
+
+.odl-song {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border-radius: 9px;
+  background: rgba(255, 77, 141, .07);
+}
+
+.odl-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #eee;
+  flex: none;
+}
+
+.odl-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.odl-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.odl-artist {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #6f6f6f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.odl-label {
+  margin: 12px 0 7px;
+  font-size: 11px;
+  color: #767676;
+  letter-spacing: .5px;
+}
+
+.odl-qualities {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+
+.odl-q {
+  padding: 9px 2px;
+  border: 1px solid rgba(0, 0, 0, .09);
+  border-radius: 9px;
+  background: #fff;
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .14s ease;
+}
+
+.odl-q:hover {
+  border-color: #ff9dbe;
+  color: #ff4d8d;
+}
+
+.odl-q.odl-active {
+  border-color: #ff4d8d;
+  background: #ff4d8d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.odl-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.odl-go {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 9px;
+  background: #ff4d8d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .14s ease;
+}
+
+.odl-go:hover {
+  opacity: .88;
+}
+
+.odl-go:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.odl-status {
+  margin-top: 10px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .045);
+  font-size: 11px;
+  line-height: 1.6;
+  color: #666;
+  word-break: break-all;
+}
+
+.odl-status.odl-err {
+  background: rgba(255, 60, 60, .08);
+  color: #d63a3a;
+}
+
+.odl-pl-dl {
+  position: fixed;
+  top: 88px;
+  right: 26px;
+  z-index: 9990;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #ff4d8d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(255, 77, 141, .35);
+}
+
+/* 「已下载」标记，挂在应用自己歌单页的 .track-title 里。
+   那边的歌名是浅色、徽章是描边风格，所以用同一种视觉语言：细边框、
+   小字号、紧挨着 VIP/SQ/MV 那一排，不额外抢眼。 */
+.odl-pl-have {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 7px;
+  border: 1px solid rgba(56, 189, 132, .55);
+  border-radius: 4px;
+  background: rgba(56, 189, 132, .14);
+  color: #6ee7a8;
+  font-size: 11px;
+  line-height: 1.55;
+  font-weight: 500;
+  white-space: nowrap;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+.odl-pl-dl:hover {
+  opacity: .88;
+}
+
+.odl-status.odl-ok {
+  background: rgba(40, 180, 90, .1);
+  color: #1f9c52;
+}
+
+.odl-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 11px;
+}
+
+.odl-tab {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid rgba(0, 0, 0, .09);
+  border-radius: 8px;
+  background: #fff;
+  color: #777;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .14s ease;
+}
+
+.odl-tab:hover {
+  border-color: #ff9dbe;
+  color: #ff4d8d;
+}
+
+.odl-tab.odl-active {
+  border-color: #ff4d8d;
+  background: #ff4d8d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.odl-hidden {
+  display: none !important;
+}
+
+.odl-pl-detect {
+  padding: 8px 10px;
+  border: 1px dashed rgba(0, 0, 0, .14);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #6f6f6f;
+}
+
+.odl-pl-detect.odl-detected {
+  border: 1px solid rgba(255, 77, 141, .45);
+  background: rgba(255, 77, 141, .06);
+  color: #d63a76;
+}
+
+.odl-pl-detect b {
+  font-size: 12px;
+}
+
+.odl-id {
+  display: inline-block;
+  margin-left: 6px;
+  font-family: Consolas, monospace;
+  font-size: 10px;
+  opacity: .7;
+}
+
+.odl-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+
+.odl-mini {
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 0, 0, .1);
+  border-radius: 7px;
+  background: #fff;
+  color: #666;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .14s ease;
+}
+
+.odl-mini:hover {
+  border-color: #ff9dbe;
+  color: #ff4d8d;
+}
+
+.odl-mini:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.odl-select {
+  flex: 1;
+  min-width: 130px;
+  padding: 6px 7px;
+  border: 1px solid rgba(0, 0, 0, .1);
+  border-radius: 7px;
+  background: #fff;
+  color: #555;
+  font-size: 11px;
+}
+
+.odl-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #ff4d8d;
+  font-weight: 600;
+}
+
+.odl-list {
+  margin-top: 9px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, .08);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.odl-empty {
+  padding: 18px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: #8a8a8a;
+}
+
+.odl-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+
+.odl-item:last-child {
+  border-bottom: none;
+}
+
+.odl-item:hover {
+  background: rgba(255, 77, 141, .05);
+}
+
+.odl-item.on {
+  background: rgba(255, 77, 141, .09);
+}
+
+.odl-item input {
+  accent-color: #ff4d8d;
+  margin: 0;
+  flex: none;
+}
+
+.odl-idx {
+  width: 26px;
+  flex: none;
+  font-family: Consolas, monospace;
+  font-size: 10px;
+  color: #8a8a8a;
+  text-align: right;
+}
+
+.odl-item-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #444;
+}
+
+.odl-item.on .odl-item-name {
+  color: #d63a76;
+  font-weight: 600;
+}
+
+.odl-item-artist {
+  flex: none;
+  max-width: 96px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  color: #767676;
+}
+
+/* 已在下载目录里的曲目。灰掉歌名并挂一个绿标：一眼能分出
+   「还要下」和「已经在库里」，不用去翻文件夹。 */
+.odl-item.have .odl-item-name {
+  color: #7a7a7a;
+  font-weight: 400;
+}
+
+.odl-item.have.on .odl-item-name {
+  color: #8f8f8f;
+}
+
+.odl-badge {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(38, 166, 91, .12);
+  color: #1f7a45;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.odl-item.on .odl-badge {
+  background: rgba(38, 166, 91, .18);
+}
+
+.odl-progress {
+  margin-top: 11px;
+}
+
+.odl-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .07);
+  overflow: hidden;
+}
+
+.odl-bar-in {
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ff7ba9, #ff4d8d);
+  transition: width .3s ease;
+}
+
+.odl-progress-txt {
+  margin-top: 5px;
+  font-family: Consolas, monospace;
+  font-size: 10px;
+  color: #7a7a7a;
+}
+
+.odl-fails {
+  margin-top: 7px;
+}
+
+.odl-diag {
+  max-height: 118px;
+  overflow-y: auto;
+  margin: 8px 0;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, .62);
+  color: #7fe08f;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.odl-fail {
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  background: rgba(255, 60, 60, .08);
+  font-size: 10px;
+  line-height: 1.5;
+  color: #d63a3a;
+  word-break: break-all;
+}
+
+.odl-savedir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .045);
+  font-size: 11px;
+  color: #777;
+}
+
+.odl-savedir b {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  color: #d63a76;
+  word-break: break-all;
+}
+
+.odl-host-flag {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 60, 60, .1);
+  color: #d63a3a;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.odl-host-flag.odl-ok-flag {
+  background: rgba(40, 180, 90, .12);
+  color: #1f9c52;
+}
+
+.odl-stop {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 9px;
+  background: #666;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.odl-stop:hover {
+  background: #444;
+}
+
+/* 跳过已下载：唯一的「换音质重下」出口，必须显眼 */
+.odl-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6f6f6f;
+  cursor: pointer;
+  user-select: none;
+}
+
+.odl-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #ff4d8d;
+  cursor: pointer;
+}
+
+.odl-check:hover {
+  color: #4a4a4a;
+}
