@@ -102,18 +102,53 @@ static class Program
     {
         if (string.IsNullOrEmpty(name)) return name;
         var sb = new StringBuilder(name.Length);
-        char[] bad = new char[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*' };
         for (int i = 0; i < name.Length; i++)
         {
             char c = name[i];
-            if (Array.IndexOf(bad, c) >= 0) { sb.Append('_'); continue; }
-            if (c < 32) { sb.Append('_'); continue; }
+            // Windows 文件名非法字符 + 控制符
+            bool bad = c < 32 || c == 127
+                    || c == '<' || c == '>' || c == ':' || c == '"'
+                    || c == '/' || c == '\\' || c == '|' || c == '?' || c == '*';
+            // Unicode 双向覆盖 / 隔离符 / 零宽字符。这些字符不非法，但 U+202E
+            // 能把 "evil.exe" 在资源管理器里画成 "evile.txt"，U+2066-U+2069 会
+            // 让别的工具把路径截到意料之外的位置 —— 文件名是不可信输入，
+            // 一律当危险字符处理。
+            if (c >= 0x200B && c <= 0x200F) bad = true;
+            if (c >= 0x202A && c <= 0x202E) bad = true;
+            if (c >= 0x2060 && c <= 0x206F) bad = true;
+            if (c == 0xFEFF) bad = true;
+            if (bad) { sb.Append('_'); continue; }
             sb.Append(c);
         }
-        string outp = sb.ToString().TrimEnd(' ', '.');
+        string outp = sb.ToString().Trim(' ', '.');
+        outp = outp.TrimStart('.');          // 前导点会变成隐藏文件
         if (outp.Length == 0) outp = "unknown";
         if (outp.Length > 180) outp = outp.Substring(0, 180);
+
+        // Windows 保留设备名。判的是第一个点之前的基名，不是整个文件名：
+        // "CON.mp3" 里的 CON 照样会被系统当成控制台设备，CreateFile 直接失败。
+        int dot = outp.IndexOf('.');
+        string stem = dot < 0 ? outp : outp.Substring(0, dot);
+        if (IsReservedDeviceName(stem)) outp = "_" + outp;
         return outp;
+    }
+
+    static bool IsReservedDeviceName(string stem)
+    {
+        if (string.IsNullOrEmpty(stem)) return false;
+        string s = stem.TrimEnd(' ');
+        if (s.Length == 0) return false;
+        if (s.Equals("CON", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("AUX", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("NUL", StringComparison.OrdinalIgnoreCase)) return true;
+        // COM1..COM9 / LPT1..LPT9；COM0 和 COM10 起的不是保留名。
+        if (s.Length == 4 && s[3] >= '1' && s[3] <= '9')
+        {
+            if ((s[0] == 'C' || s[0] == 'c') && (s[1] == 'O' || s[1] == 'o') && (s[2] == 'M' || s[2] == 'm')) return true;
+            if ((s[0] == 'L' || s[0] == 'l') && (s[1] == 'P' || s[1] == 'p') && (s[2] == 'T' || s[2] == 't')) return true;
+        }
+        return false;
     }
 
     // id 原样回显：bridge 可能发数字也可能发字符串，
@@ -466,6 +501,32 @@ static class Program
                     }
 
                     string full = Path.IsPathRooted(dest) ? dest : Path.Combine(dir ?? "", dest);
+
+                    // 越界兜底。CleanName 已经把 \ 和 : 换掉了，绝对路径这条路
+                    // 走不通；这是最后一道闸 —— 以后谁改了 CleanName，这里还能
+                    // 拦住写到下载目录外面的去。
+                    if (!string.IsNullOrEmpty(dir))
+                    {
+                        try
+                        {
+                            string guardRoot = Path.GetFullPath(dir);
+                            string absTarget = Path.GetFullPath(full);
+                            string prefix = guardRoot.EndsWith(Path.DirectorySeparatorChar.ToString())
+                                ? guardRoot : guardRoot + Path.DirectorySeparatorChar;
+                            if (!absTarget.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                Reply(id, false, "目标路径越出了下载目录，已拒绝", "", 0);
+                                continue;
+                            }
+                            full = absTarget;
+                        }
+                        catch (Exception ex)
+                        {
+                            Reply(id, false, "路径无效: " + ex.Message, "", 0);
+                            continue;
+                        }
+                    }
+
                     string dirn = Path.GetDirectoryName(full);
                     if (!string.IsNullOrEmpty(dirn) && !Directory.Exists(dirn))
                     {

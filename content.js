@@ -170,8 +170,27 @@
     };
   }
 
+  // Windows 保留设备名：CON / PRN / AUX / NUL / COM1-9 / LPT1-9。判的是第一个点
+  // 之前的基名 —— "CON.mp3" 里的 CON 照样会被系统当成控制台设备，落盘直接失败。
+  var WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+  /* 文件名是不可信输入：它由歌名和歌手名拼成，而那些是从网络接口拿回来的。
+     这里先清一遍，本地程序那边（Host.cs 的 CleanName）还会再清一遍 —— 两层都做
+     是因为这条路上任何一层的疏漏，代价都是写到不该写的地方去。 */
   function sanitize(s) {
-    return String(s).replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120);
+    var out = String(s == null ? '' : s)
+      // 控制符 + 零宽 + Unicode 双向覆盖/隔离符。U+202E 能把 evil.exe 在资源管理器里
+      // 画成 evile.txt，U+2066-U+2069 会让别的工具把路径截到意料之外的位置。
+      .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g, '_')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^\.+/, '')            // 前导点会变成隐藏文件
+      .slice(0, 120)
+      .trim();
+    if (!out) out = '未知歌曲';
+    if (WIN_RESERVED.test(out.split('.')[0])) out = '_' + out;
+    return out;
   }
 
   function extFromUrl(url, fallback) {

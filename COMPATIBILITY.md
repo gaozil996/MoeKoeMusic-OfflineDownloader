@@ -119,7 +119,51 @@ body, html, button, input, textarea, select { font-family: "...", ... !important
 - **audio-viz 和 offline-dl 都带原生宿主**，两者互不干扰：
   一个只监听输出设备，一个只写磁盘，stdin/stdout 各连各的 exe。
 
-## 六、版本与验证
+## 六、权限模型
+
+内容脚本的 `matches` 一律是 `file:///*`，不是 `<all_urls>`。
+
+应用是用 `file://` 加载的（`session.defaultSession` 走扩展），主窗口、
+桌面歌词窗口、全屏歌词页全都是同一个 `index.html`，所以 `file:///*` 就是
+精确范围 —— 它能覆盖且仅覆盖本插件需要注入的那些页面。`<all_urls>` 在这里
+没有任何额外收益，只是把「能进所有网站」这句话写进了清单。
+
+`host_permissions` 按实际网络行为给：
+
+| 插件 | host_permissions | 为什么 |
+|---|---|---|
+| word-lyric | `http://127.0.0.1/*`、`http://localhost/*` | 取 KRC 歌词要打本地 API |
+| offline-dl | 同上 | 取流要打本地 API |
+| audio-viz | **不申请** | 全程不联网，走 WASAPI loopback + 原生宿主 |
+
+**一个已知的取舍**：应用的「设置 → 声音 → RPC 地址」允许把 API 指向自定义
+主机（`settings.apiBaseUrl`）。word-lyric 和 offline-dl 读这个值，
+但如果它不是回环地址，收窄后的 `host_permissions` 会拦下请求，
+逐字歌词 / 下载取流会失败。默认配置（`apiBaseUrl` 为空、回落到
+`http://127.0.0.1:6521`）完全不受影响。用自建 RPC 的话，
+把 manifest 里的 `host_permissions` 补上你的主机即可。
+
+## 七、依赖点挂掉时的降级行为
+
+所有 DOM 读取都判空，没有一处是「拿到就往里写」。具体到每个依赖点：
+
+| 依赖点没了 | 表现 | 会不会报错 |
+|---|---|---|
+| `#lyrics` | 逐字填充整个停摆，主循环空转 | 不报错，每帧一次 `querySelector` 返回 null 后直接 return |
+| `#lyrics .char` | 填充退化成整行变色 | 不报错，`spans.length` 为 0 时跳过该行 |
+| `.line-group` | 无法映射 DOM 行 ↔ 歌词数组 | 不报错，`groups.length` 为 0 时返回 |
+| `.fullscreen-lyrics-settings .settings-panel` | 设置面板不出现 | 不报错，`mount()` 返回 false，40 帧后重试 |
+| `.player-container .progress-bar .progress` | 时间轴读不到，进度停在 0 | 不报错，逐字填充退化为不动 |
+| `.player-container .duration` | 时长算不出来 | 不报错，进度按 0 处理 |
+| `.vue-recycle-scroller__item-view`（offline-dl） | 「已下载」徽章挂不上 | 不报错，标记每次滚动重新打 |
+| `.fullscreen-lyrics-settings`（audio-viz） | 画布不挂 | 不报错，定时补回 |
+
+换句话说：**DOM 变了的后果是某个功能不生效，不是插件把应用搞崩、也不是
+控制台刷屏。** 主循环和各个定时任务各自兜住了异常，抛错会指名道姓说是哪一步。
+
+想加新依赖的话，请同时在第一节的表里加一行，写清楚「变了会怎样」。
+
+## 八、版本与验证
 
 最后核对的版本：
 
@@ -132,11 +176,11 @@ body, html, button, input, textarea, select { font-family: "...", ... !important
 - Node v22（只用 `node --check` 做语法检查）
 - 原生宿主用 `$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe` 编译
 
-## 七、应用升级后怎么查
+## 九、应用升级后怎么查
 
 1. 打开开发者工具控制台，看四个插件的日志前缀
    （`[LyricW]` / `[OfflineDL]` 等）有没有报「某一步失败」。
    主循环和定时任务都各自兜住了异常，报错会指名道姓说是哪一步。
-2. 对照上面第一、二、三节的表逐条看。
+2. 对照上面第一、二、三、七节的表逐条看。
 3. 改了应用的类名或设置键的话，**本文件要一起改** ——
    这是唯一能一眼看出「谁变了」的地方。
