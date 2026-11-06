@@ -1,106 +1,183 @@
-/* The toggle lives on the dark player bar, NOT on the light panel, so it
-   needs a LIGHT glyph. The panel's secondary text was darkened separately
-   below; applying that value here dropped the arrow to 2.7:1 on #1a1a1a. */
+/* ============================================================
+   离线下载器 · Apple Music 风格（紧凑版）
+   设计系统对齐 MoeKoeMusic/apple-music-theme：#fa233b 红、胶囊按钮、
+   大圆角、三层 surface、毛玻璃、深色跟随 html.dark。
+   本版：整体缩小更紧凑；目录设置移到 MoeKoe 设置页（见末尾卡片样式）。
+   说明：class 名与 content.js 强耦合，仅改视觉，不动下载/标记逻辑。
+   ============================================================ */
+
+/* ---------- 设计令牌 ---------- */
+:root {
+  --odl-accent: #fa233b;
+  --odl-accent-grad: linear-gradient(135deg, #ff556d, #fa233b);
+  --odl-accent-grad-bar: linear-gradient(90deg, #ff566e, #fa233b);
+  --odl-accent-soft: rgba(250, 35, 59, .14);
+  --odl-accent-ring: rgba(250, 35, 59, .35);
+  --odl-accent-glow: rgba(250, 35, 59, .3);
+
+  --odl-ink: 17, 19, 26;
+  --odl-text: #11131a;
+  --odl-subtle: rgba(17, 19, 26, .6);
+  --odl-line: rgba(17, 19, 26, .08);
+  --odl-chip: rgba(17, 19, 26, .05);
+
+  --odl-surface: rgba(255, 255, 255, .82);
+  --odl-surface-strong: rgba(255, 255, 255, .92);
+  --odl-surface-soft: rgba(255, 255, 255, .62);
+  --odl-edge: rgba(255, 255, 255, .58);
+
+  --odl-shadow: 0 20px 54px rgba(17, 19, 26, .12);
+  --odl-shadow-soft: 0 12px 30px rgba(17, 19, 26, .08);
+
+  --odl-ok: #12824c;
+  --odl-ok-bg: rgba(18, 130, 76, .12);
+  --odl-err: #d6223a;
+  --odl-err-bg: rgba(250, 35, 59, .1);
+
+  --odl-font: "SF Pro Display", "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+html.dark {
+  --odl-ink: 245, 245, 247;
+  --odl-text: #f5f5f7;
+  --odl-subtle: rgba(245, 245, 247, .6);
+  --odl-line: rgba(245, 245, 247, .08);
+  --odl-chip: rgba(245, 245, 247, .08);
+
+  --odl-surface: rgba(24, 25, 31, .82);
+  --odl-surface-strong: rgba(31, 32, 38, .92);
+  --odl-surface-soft: rgba(31, 32, 38, .66);
+  --odl-edge: rgba(255, 255, 255, .08);
+
+  --odl-shadow: 0 20px 54px rgba(0, 0, 0, .3);
+  --odl-shadow-soft: 0 12px 30px rgba(0, 0, 0, .24);
+
+  --odl-ok: #4cd964;
+  --odl-ok-bg: rgba(76, 217, 100, .16);
+  --odl-err: #ff5a6e;
+  --odl-err-bg: rgba(250, 35, 59, .18);
+}
+
+/* ---------- 播放条入口按钮 ---------- */
 .odl-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   margin: 0 4px;
   border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #b0b0b0;
-  font-size: 15px;
+  border-radius: 999px;
+  background: var(--odl-chip);
+  color: var(--odl-text);
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
-  transition: color .15s ease, background .15s ease;
+  transition: color .2s ease, background .2s ease, transform .2s ease;
 }
 
 .odl-toggle:hover {
-  background: rgba(0, 0, 0, .06);
-  color: #ff4d8d;
+  background: var(--odl-accent-soft);
+  color: var(--odl-accent);
+  transform: translateY(-1px);
 }
 
+/* ---------- 面板容器（缩小） ---------- */
 .odl-panel {
   position: fixed;
   right: 384px;
   bottom: 92px;
   z-index: 99999;
-  width: 408px;
-  max-height: 78vh;
+  width: 320px;
+  max-height: 72vh;
   overflow-y: auto;
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, .97);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .22);
-  font-family: -apple-system, "Microsoft YaHei", sans-serif;
-  color: #333;
-  backdrop-filter: blur(8px);
+  padding: 12px;
+  border: 1px solid var(--odl-edge);
+  border-radius: 20px;
+  background: var(--odl-surface);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow: var(--odl-shadow);
+  font-family: var(--odl-font);
+  color: var(--odl-text);
+  animation: odl-pop .26s cubic-bezier(.16, 1, .3, 1);
 }
 
 .odl-panel.odl-hidden {
   display: none;
 }
 
-.odl-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 9px;
-  border-bottom: 1px solid rgba(0, 0, 0, .08);
+@keyframes odl-pop {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.odl-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #ff4d8d;
+.odl-panel::-webkit-scrollbar,
+.odl-list::-webkit-scrollbar,
+.odl-diag::-webkit-scrollbar {
+  width: 6px;
 }
-
-.odl-title small {
-  display: block;
-  margin-top: 3px;
-  font-size: 11px;
-  font-weight: 400;
-  color: #6f6f6f;
+.odl-panel::-webkit-scrollbar-thumb,
+.odl-list::-webkit-scrollbar-thumb,
+.odl-diag::-webkit-scrollbar-thumb {
+  background: rgba(var(--odl-ink), .18);
+  border-radius: 999px;
 }
-
-.odl-close {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 50%;
+.odl-panel::-webkit-scrollbar-thumb:hover,
+.odl-list::-webkit-scrollbar-thumb:hover {
+  background: var(--odl-accent-ring);
+}
+.odl-panel::-webkit-scrollbar-track,
+.odl-list::-webkit-scrollbar-track,
+.odl-diag::-webkit-scrollbar-track {
   background: transparent;
-  color: #6f6f6f;
-  font-size: 16px;
+}
+
+/* ---------- 关闭按钮（浮右上角） ---------- */
+.odl-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--odl-chip);
+  color: var(--odl-subtle);
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
+  transition: all .18s ease;
 }
 
 .odl-close:hover {
-  background: rgba(0, 0, 0, .07);
-  color: #333;
+  background: var(--odl-accent-soft);
+  color: var(--odl-accent);
+  transform: rotate(90deg);
 }
 
+/* ---------- 单曲卡片 ---------- */
 .odl-song {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px;
-  border-radius: 9px;
-  background: rgba(255, 77, 141, .07);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--odl-line);
+  border-radius: 14px;
+  background: var(--odl-surface-strong);
+  box-shadow: var(--odl-shadow-soft);
 }
 
 .odl-cover {
-  width: 40px;
-  height: 40px;
-  border-radius: 7px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   object-fit: cover;
-  background: #eee;
+  background: var(--odl-chip);
   flex: none;
+  box-shadow: 0 4px 12px rgba(var(--odl-ink), .18);
 }
 
 .odl-meta {
@@ -111,6 +188,8 @@
 .odl-name {
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--odl-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -119,120 +198,152 @@
 .odl-artist {
   margin-top: 2px;
   font-size: 11px;
-  color: #6f6f6f;
+  color: var(--odl-subtle);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* ---------- 分区标签 ---------- */
 .odl-label {
-  margin: 12px 0 7px;
-  font-size: 11px;
-  color: #767676;
-  letter-spacing: .5px;
+  margin: 10px 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--odl-subtle);
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
+/* ---------- 音质选择 ---------- */
 .odl-qualities {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
+  gap: 6px;
 }
 
 .odl-q {
-  padding: 9px 2px;
-  border: 1px solid rgba(0, 0, 0, .09);
-  border-radius: 9px;
-  background: #fff;
-  color: #555;
-  font-size: 12px;
+  padding: 7px 2px;
+  border: 1px solid var(--odl-line);
+  border-radius: 999px;
+  background: var(--odl-surface-strong);
+  box-shadow: var(--odl-shadow-soft);
+  color: var(--odl-text);
+  font-size: 11px;
   text-align: center;
   cursor: pointer;
-  transition: all .14s ease;
+  transition: all .18s ease;
 }
 
 .odl-q:hover {
-  border-color: #ff9dbe;
-  color: #ff4d8d;
+  border-color: var(--odl-accent-ring);
+  color: var(--odl-accent);
+  transform: translateY(-1px);
 }
 
 .odl-q.odl-active {
-  border-color: #ff4d8d;
-  background: #ff4d8d;
+  border-color: var(--odl-accent-ring);
+  background: var(--odl-accent-grad);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 6px 14px var(--odl-accent-glow);
 }
 
+/* ---------- 主操作按钮 ---------- */
 .odl-actions {
   display: flex;
   gap: 8px;
-  margin-top: 13px;
+  margin-top: 12px;
 }
 
 .odl-go {
   flex: 1;
-  padding: 10px;
+  padding: 9px;
   border: none;
-  border-radius: 9px;
-  background: #ff4d8d;
+  border-radius: 999px;
+  background: var(--odl-accent-grad);
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity .14s ease;
+  box-shadow: 0 8px 18px var(--odl-accent-glow);
+  transition: all .18s ease;
 }
 
 .odl-go:hover {
-  opacity: .88;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(250, 35, 59, .38);
+}
+
+.odl-go:active {
+  transform: translateY(0);
 }
 
 .odl-go:disabled {
-  background: #ccc;
+  background: var(--odl-chip);
+  color: var(--odl-subtle);
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
+/* ---------- 状态条 ---------- */
 .odl-status {
   margin-top: 10px;
-  padding: 8px 9px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, .045);
-  font-size: 11px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--odl-chip);
+  font-size: 10px;
   line-height: 1.6;
-  color: #666;
+  color: var(--odl-subtle);
   word-break: break-all;
 }
 
 .odl-status.odl-err {
-  background: rgba(255, 60, 60, .08);
-  color: #d63a3a;
+  background: var(--odl-err-bg);
+  color: var(--odl-err);
 }
 
+.odl-status.odl-ok {
+  background: var(--odl-ok-bg);
+  color: var(--odl-ok);
+}
+
+/* ---------- 歌单页「离线下载本歌单」按钮 ---------- */
 .odl-pl-dl {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--odl-accent-grad);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 18px var(--odl-accent-glow);
+  transition: all .18s ease;
+  white-space: nowrap;
+}
+
+.odl-pl-dl-float {
   position: fixed;
   top: 88px;
   right: 26px;
   z-index: 9990;
-  padding: 10px 18px;
-  border: none;
-  border-radius: 8px;
-  background: #ff4d8d;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(255, 77, 141, .35);
 }
 
-/* 「已下载」标记，挂在应用自己歌单页的 .track-title 里。
-   那边的歌名是浅色、徽章是描边风格，所以用同一种视觉语言：细边框、
-   小字号、紧挨着 VIP/SQ/MV 那一排，不额外抢眼。 */
+.odl-pl-dl:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(250, 35, 59, .38);
+}
+
+/* 「已下载」标记（应用歌单行里） */
 .odl-pl-have {
   display: inline-block;
   margin-left: 7px;
-  padding: 1px 7px;
-  border: 1px solid rgba(56, 189, 132, .55);
-  border-radius: 4px;
-  background: rgba(56, 189, 132, .14);
-  color: #6ee7a8;
+  padding: 1px 8px;
+  border: 1px solid var(--odl-ok);
+  border-radius: 999px;
+  background: var(--odl-ok-bg);
+  color: var(--odl-ok);
   font-size: 11px;
   line-height: 1.55;
   font-weight: 500;
@@ -241,98 +352,39 @@
   pointer-events: none;
 }
 
-.odl-pl-dl:hover {
-  opacity: .88;
-}
-
-.odl-status.odl-ok {
-  background: rgba(40, 180, 90, .1);
-  color: #1f9c52;
-}
-
+/* 单曲 / 歌单入口已分离，标签栏不再显示 */
 .odl-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 11px;
-}
-
-.odl-tab {
-  flex: 1;
-  padding: 7px 0;
-  border: 1px solid rgba(0, 0, 0, .09);
-  border-radius: 8px;
-  background: #fff;
-  color: #777;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all .14s ease;
-}
-
-.odl-tab:hover {
-  border-color: #ff9dbe;
-  color: #ff4d8d;
-}
-
-.odl-tab.odl-active {
-  border-color: #ff4d8d;
-  background: #ff4d8d;
-  color: #fff;
-  font-weight: 600;
+  display: none;
 }
 
 .odl-hidden {
   display: none !important;
 }
 
-.odl-pl-detect {
-  padding: 8px 10px;
-  border: 1px dashed rgba(0, 0, 0, .14);
-  border-radius: 8px;
-  font-size: 11px;
-  line-height: 1.6;
-  color: #6f6f6f;
-}
-
-.odl-pl-detect.odl-detected {
-  border: 1px solid rgba(255, 77, 141, .45);
-  background: rgba(255, 77, 141, .06);
-  color: #d63a76;
-}
-
-.odl-pl-detect b {
-  font-size: 12px;
-}
-
-.odl-id {
-  display: inline-block;
-  margin-left: 6px;
-  font-family: Consolas, monospace;
-  font-size: 10px;
-  opacity: .7;
-}
-
+/* ---------- 工具行 / 小按钮 / 计数 ---------- */
 .odl-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 9px;
+  margin-top: 8px;
   flex-wrap: wrap;
 }
 
 .odl-mini {
-  padding: 6px 10px;
-  border: 1px solid rgba(0, 0, 0, .1);
-  border-radius: 7px;
-  background: #fff;
-  color: #666;
-  font-size: 11px;
+  padding: 5px 11px;
+  border: 1px solid var(--odl-line);
+  border-radius: 999px;
+  background: var(--odl-surface-strong);
+  box-shadow: var(--odl-shadow-soft);
+  color: var(--odl-text);
+  font-size: 10px;
   cursor: pointer;
-  transition: all .14s ease;
+  transition: all .16s ease;
 }
 
 .odl-mini:hover {
-  border-color: #ff9dbe;
-  color: #ff4d8d;
+  border-color: var(--odl-accent-ring);
+  color: var(--odl-accent);
 }
 
 .odl-mini:disabled {
@@ -340,75 +392,63 @@
   cursor: not-allowed;
 }
 
-.odl-select {
-  flex: 1;
-  min-width: 130px;
-  padding: 6px 7px;
-  border: 1px solid rgba(0, 0, 0, .1);
-  border-radius: 7px;
-  background: #fff;
-  color: #555;
-  font-size: 11px;
-}
-
 .odl-count {
   margin-left: auto;
-  font-size: 11px;
-  color: #ff4d8d;
+  font-size: 10px;
+  color: var(--odl-accent);
   font-weight: 600;
 }
 
+/* ---------- 歌曲列表 ---------- */
 .odl-list {
-  margin-top: 9px;
-  max-height: 220px;
+  margin-top: 8px;
+  max-height: 170px;
   overflow-y: auto;
-  border: 1px solid rgba(0, 0, 0, .08);
-  border-radius: 9px;
-  background: #fff;
+  padding: 4px;
+  border: 1px solid var(--odl-line);
+  border-radius: 14px;
+  background: var(--odl-chip);
 }
 
 .odl-empty {
-  padding: 18px 10px;
+  padding: 16px 10px;
   text-align: center;
-  font-size: 11px;
-  color: #8a8a8a;
+  font-size: 10px;
+  color: var(--odl-subtle);
 }
 
 .odl-item {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
-  border-bottom: 1px solid rgba(0, 0, 0, .05);
-  font-size: 12px;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: var(--odl-text);
   cursor: pointer;
-  transition: background .12s ease;
-}
-
-.odl-item:last-child {
-  border-bottom: none;
+  transition: background .14s ease;
 }
 
 .odl-item:hover {
-  background: rgba(255, 77, 141, .05);
+  background: var(--odl-chip);
 }
 
 .odl-item.on {
-  background: rgba(255, 77, 141, .09);
+  background: var(--odl-accent-soft);
 }
 
 .odl-item input {
-  accent-color: #ff4d8d;
+  accent-color: var(--odl-accent);
   margin: 0;
   flex: none;
 }
 
 .odl-idx {
-  width: 26px;
+  width: 22px;
   flex: none;
   font-family: Consolas, monospace;
-  font-size: 10px;
-  color: #8a8a8a;
+  font-size: 9px;
+  color: var(--odl-subtle);
   text-align: right;
 }
 
@@ -418,175 +458,199 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #444;
+  color: var(--odl-text);
 }
 
 .odl-item.on .odl-item-name {
-  color: #d63a76;
+  color: var(--odl-accent);
   font-weight: 600;
 }
 
 .odl-item-artist {
   flex: none;
-  max-width: 96px;
+  max-width: 80px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 10px;
-  color: #767676;
+  font-size: 9px;
+  color: var(--odl-subtle);
 }
 
-/* 已在下载目录里的曲目。灰掉歌名并挂一个绿标：一眼能分出
-   「还要下」和「已经在库里」，不用去翻文件夹。 */
 .odl-item.have .odl-item-name {
-  color: #7a7a7a;
+  color: var(--odl-subtle);
   font-weight: 400;
 }
 
 .odl-item.have.on .odl-item-name {
-  color: #8f8f8f;
+  color: var(--odl-subtle);
 }
 
 .odl-badge {
   flex: none;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(38, 166, 91, .12);
-  color: #1f7a45;
-  font-size: 10px;
+  background: var(--odl-ok-bg);
+  color: var(--odl-ok);
+  font-size: 9px;
   line-height: 1.5;
   white-space: nowrap;
 }
 
-.odl-item.on .odl-badge {
-  background: rgba(38, 166, 91, .18);
-}
-
+/* ---------- 进度条 ---------- */
 .odl-progress {
-  margin-top: 11px;
+  margin-top: 10px;
 }
 
 .odl-bar {
-  height: 7px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, .07);
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(var(--odl-ink), .12);
   overflow: hidden;
 }
 
 .odl-bar-in {
   height: 100%;
   width: 0;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #ff7ba9, #ff4d8d);
+  border-radius: 999px;
+  background: var(--odl-accent-grad-bar);
   transition: width .3s ease;
 }
 
 .odl-progress-txt {
-  margin-top: 5px;
+  margin-top: 4px;
   font-family: Consolas, monospace;
-  font-size: 10px;
-  color: #7a7a7a;
+  font-size: 9px;
+  color: var(--odl-subtle);
 }
 
+/* ---------- 诊断 / 失败清单 ---------- */
 .odl-fails {
-  margin-top: 7px;
+  margin-top: 8px;
 }
 
 .odl-diag {
-  max-height: 118px;
+  max-height: 120px;
   overflow-y: auto;
-  margin: 8px 0;
-  padding: 7px 8px;
-  border-radius: 7px;
-  background: rgba(0, 0, 0, .62);
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(30, 30, 30, .85);
   color: #7fe08f;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 9px;
+  line-height: 1.5;
   word-break: break-all;
 }
 
 .odl-fail {
-  padding: 5px 8px;
+  padding: 5px 9px;
   margin-bottom: 4px;
-  border-radius: 6px;
-  background: rgba(255, 60, 60, .08);
-  font-size: 10px;
-  line-height: 1.5;
-  color: #d63a3a;
-  word-break: break-all;
-}
-
-.odl-savedir {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 7px 9px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, .045);
-  font-size: 11px;
-  color: #777;
-}
-
-.odl-savedir b {
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 11px;
-  color: #d63a76;
+  background: var(--odl-err-bg);
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--odl-err);
   word-break: break-all;
 }
 
-.odl-host-flag {
-  flex: none;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255, 60, 60, .1);
-  color: #d63a3a;
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.odl-host-flag.odl-ok-flag {
-  background: rgba(40, 180, 90, .12);
-  color: #1f9c52;
-}
-
+/* ---------- 停止按钮 ---------- */
 .odl-stop {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 9px;
-  background: #666;
-  color: #fff;
-  font-size: 13px;
+  padding: 9px 16px;
+  border: 1px solid var(--odl-line);
+  border-radius: 999px;
+  background: var(--odl-surface-strong);
+  color: var(--odl-text);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: all .16s ease;
 }
 
 .odl-stop:hover {
-  background: #444;
+  border-color: var(--odl-accent-ring);
+  color: var(--odl-accent);
 }
 
-/* 跳过已下载：唯一的「换音质重下」出口，必须显眼 */
+/* 跳过已下载勾选 */
 .odl-check {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
-  color: #6f6f6f;
+  color: var(--odl-subtle);
   cursor: pointer;
   user-select: none;
 }
 
 .odl-check input {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   margin: 0;
-  accent-color: #ff4d8d;
+  accent-color: var(--odl-accent);
   cursor: pointer;
 }
 
 .odl-check:hover {
-  color: #4a4a4a;
+  color: var(--odl-text);
+}
+
+/* ============================================================
+   设置页：下载目录设置卡片（挂在 MoeKoe 设置页，不在下载面板里）
+   ============================================================ */
+/* 复用应用 setting-card 的整体外观（背景/圆角/阴影由应用与主题提供），
+   这里只补内部布局，并取消卡片的手型指针（它是输入区，不是跳转卡片）。 */
+.odl-dir-setting {
+  cursor: default;
+  font-family: var(--odl-font);
+  color: var(--odl-text);
+}
+
+.odl-ds-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.odl-ds-body input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--odl-line);
+  border-radius: 8px;
+  background: var(--odl-surface);
+  color: var(--odl-text);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+}
+
+.odl-ds-body input:focus {
+  outline: none;
+  border-color: var(--odl-accent-ring);
+}
+
+.odl-ds-body button {
+  flex: none;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--odl-accent-grad);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--odl-accent-glow);
+  transition: transform .16s ease;
+}
+
+.odl-ds-body button:hover {
+  transform: translateY(-1px);
+}
+
+.odl-ds-hint {
+  margin-top: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--odl-subtle);
+  word-break: break-all;
 }
