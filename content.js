@@ -2,7 +2,9 @@
   'use strict';
 
   var P = '[OfflineDL]';
-  var API_BASE = 'http://127.0.0.1:6521';
+  // MoeKoe 1.7.2 的本地 API 服务默认监听 6520（需在 设置→API模式 开启，RPC地址 保持默认）。
+  // 若你的版本/自定义端口不同，在 设置→RPC地址 填自定义地址即可，getApiBase() 会优先使用它。
+  var API_BASE = 'http://127.0.0.1:6520';
   var STORE_KEY = 'offline_dl_state';
 
   // Order matters and so do the tags. matchVariant returns the FIRST tag hit,
@@ -359,30 +361,30 @@
   function renderDiag() {
     var el = document.getElementById('odl-diag');
     if (!el) return;
-    if (!nhDiag.length) { el.classList.add('odl-hidden'); return; }
-    el.classList.remove('odl-hidden');
-    el.innerHTML = nhDiag.slice(-14).map(function (l) {
-      return '<div>' + escapeHtml(l) + '</div>';
-    }).join('');
+    // 诊断日志默认不自动弹出：下载时 PROG/DONE 会刷屏、把面板撑得很长很难看。
+    // 日志仍在收集，需要排查时看控制台 [OfflineDL] 即可。
+    el.classList.add('odl-hidden');
   }
 
   function renderLiveProgress() {
     if (!live.on) return;
-    var bar = document.getElementById('odl-bar-in');
-    var txt = document.getElementById('odl-progress-txt');
-    if (!bar || !txt) return;
-    var wrap = document.getElementById('odl-progress');
-    if (wrap) wrap.classList.remove('odl-hidden');
+    var bars = document.querySelectorAll('.odl-bar-in');
+    var txts = document.querySelectorAll('.odl-progress-txt');
+    if (!bars.length) return;
+    // 单曲与批量视图都有进度条，统一按 class 更新；隐藏视图里的那条因父视图隐藏而不可见。
+    document.querySelectorAll('.odl-progress').forEach(function (w) { w.classList.remove('odl-hidden'); });
 
     var base = batch.total ? (batch.done / batch.total * 100) : 0;
     var within = live.total ? (live.received / live.total * 100) : 0;
     var pct = batch.total ? Math.min(100, base + (within / batch.total)) : within;
 
-    bar.style.width = pct.toFixed(1) + '%';
     var mb = (live.received / 1048576).toFixed(2);
     var totalTxt = live.total ? (' / ' + (live.total / 1048576).toFixed(1) + ' MB') : ' MB';
-    txt.textContent = '第 ' + (batch.done + 1) + ' / ' + batch.total + ' 首 · ' + mb + totalTxt
-      + (batch.fails.length ? ' · 失败 ' + batch.fails.length : '');
+    var text = batch.total
+      ? ('第 ' + (batch.done + 1) + ' / ' + batch.total + ' 首 · ' + mb + totalTxt + (batch.fails.length ? ' · 失败 ' + batch.fails.length : ''))
+      : (mb + totalTxt);
+    bars.forEach(function (b) { b.style.width = pct.toFixed(1) + '%'; });
+    txts.forEach(function (t) { t.textContent = text; });
   }
 
   // status 走 6 秒就够；download 由 bridge 侧 20 秒静默看门狗负责，
@@ -781,20 +783,38 @@
 
     var btn = document.createElement('button');
     btn.id = 'odl-toggle';
-    btn.className = 'odl-toggle';
+    btn.className = 'extra-btn odl-toggle';
     btn.title = '离线下载器';
-    btn.textContent = '⤓';
+    btn.innerHTML = '<i class="fas fa-download"></i>';
     btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
       var panel = document.getElementById('odl-panel');
       if (panel) {
         panel.classList.toggle('odl-hidden');
-        if (!panel.classList.contains('odl-hidden')) refreshContext();
+        if (!panel.classList.contains('odl-hidden')) {
+          // 播放条入口 = 单曲下载；歌单批量下载进行中则保持歌单视图以便看进度。
+          if (!batch.running) { ui.mode = 'single'; saveState(); }
+          renderMode();
+          refreshContext();
+        }
       }
     });
 
     var host = document.querySelector('.extra-controls');
+    // 让下载按钮与播放条其它 extra-btn 同尺寸、同风格（复制 scoped data-v 属性）。
+    var sibling = host ? host.querySelector('.extra-btn') : null;
+    if (sibling) {
+      for (var si = 0; si < sibling.attributes.length; si++) {
+        var an = sibling.attributes[si].name;
+        if (an.indexOf('data-v-') === 0) {
+          btn.setAttribute(an, '');
+          var iconEl = btn.querySelector('i');
+          if (iconEl) iconEl.setAttribute(an, '');
+          break;
+        }
+      }
+    }
     if (host) {
       var vfx = document.getElementById('vfx-toggle');
       if (vfx) host.insertBefore(btn, vfx);
@@ -818,8 +838,7 @@
     panel.className = 'odl-panel odl-hidden';
 
     var html = '';
-    html += '<div class="odl-head"><div class="odl-title">离线下载器<small>单曲 · 歌单批量 · 下完不联网也能播</small></div>' +
-      '<button class="odl-close" id="odl-close">&times;</button></div>';
+    html += '<button class="odl-close" id="odl-close" title="关闭">&times;</button>';
 
     html += '<div class="odl-tabs"><button class="odl-tab" data-mode="single">单曲</button>' +
       '<button class="odl-tab" data-mode="batch">歌单批量</button></div>';
@@ -833,16 +852,13 @@
       html += '<button class="odl-q" data-q="' + QUALITIES[i].id + '">' + QUALITIES[i].label + '</button>';
     }
     html += '</div><div class="odl-actions"><button class="odl-go" id="odl-go">下载这首</button></div>';
+    html += '<div class="odl-progress odl-hidden"><div class="odl-bar"><div class="odl-bar-in"></div></div>' +
+      '<div class="odl-progress-txt">0 MB</div></div>';
     html += '<div class="odl-status" id="odl-status">就绪</div>';
     html += '</div>';
 
     html += '<div id="odl-view-batch" class="odl-hidden">';
-    html += '<div class="odl-pl-detect" id="odl-pl-detect">打开任意歌单详情页可自动识别</div>';
-    html += '<div class="odl-row"><button class="odl-mini" id="odl-pl-refresh">识别当前页</button>' +
-      '<button class="odl-mini" id="odl-pl-mine">我的歌单</button>' +
-      '<select class="odl-select" id="odl-pl-select"><option value="">— 选择歌单 —</option></select></div>';
-    html += '<div class="odl-row"><button class="odl-mini" id="odl-pl-fetch">拉取歌曲</button>' +
-      '<button class="odl-mini" id="odl-sel-all">全选</button>' +
+    html += '<div class="odl-row"><button class="odl-mini" id="odl-sel-all">全选</button>' +
       '<button class="odl-mini" id="odl-sel-none">清空</button>' +
       '<span class="odl-count" id="odl-count">0 首</span></div>';
     html += '<div class="odl-row"><label class="odl-check"><input type="checkbox" id="odl-skip" checked>' +
@@ -862,8 +878,6 @@
       '<button class="odl-mini" id="odl-retry">只重试失败的</button>' +
       '<span class="odl-count" id="odl-retry-n"></span></div>';
     html += '<div class="odl-diag odl-hidden" id="odl-diag"></div>';
-    html += '<div class="odl-savedir">保存到 <b id="odl-dir-text">' + escapeHtml(saveDir()) + '</b>' +
-      '<span class="odl-host-flag" id="odl-host-flag">检测本地程序…</span></div>';
     html += '<div class="odl-status" id="odl-status2">就绪</div>';
     html += '</div>';
 
@@ -908,30 +922,6 @@
       runSingleDownload();
     });
 
-    panel.querySelector('#odl-pl-refresh').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      refreshContext();
-    });
-
-    panel.querySelector('#odl-pl-mine').addEventListener('click', async function (e) {
-      e.preventDefault(); e.stopPropagation();
-      await loadMyPlaylists();
-    });
-
-    panel.querySelector('#odl-pl-select').addEventListener('change', function (e) {
-      var opt = e.target.selectedOptions[0];
-      if (!opt || !opt.value) return;
-      batch.listid = opt.value;
-      batch.gcid = opt.getAttribute('data-gcid') || '';
-      batch.listName = opt.textContent;
-      updateDetect();
-    });
-
-    panel.querySelector('#odl-pl-fetch').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      pullPlaylist();
-    });
-
     panel.querySelector('#odl-sel-all').addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation();
       batch.songs.forEach(function (s) { batch.selected[s.hash] = true; });
@@ -965,6 +955,12 @@
     renderMode();
     syncQualityUI();
     renderSong();
+
+    // 切换路由（上一级 / 下一级页面）时自动收起下载面板，避免一直悬浮在页面上。
+    window.addEventListener('hashchange', function () {
+      var p = document.getElementById('odl-panel');
+      if (p) p.classList.add('odl-hidden');
+    });
   }
 
   function renderMode() {
@@ -988,6 +984,26 @@
     if (!el) return;
     el.textContent = text;
     el.className = 'odl-status' + (kind === 'err' ? ' odl-err' : kind === 'ok' ? ' odl-ok' : '');
+  }
+
+  // 下载完成等消息用「顶部居中气泡」提示，几秒后自动消失，不占用面板状态栏。
+  function showToast(text, kind) {
+    try {
+      var t = document.getElementById('odl-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'odl-toast';
+        document.body.appendChild(t);
+      }
+      t.className = 'odl-toast' + (kind === 'err' ? ' odl-toast-err' : '');
+      t.textContent = text;
+      void t.offsetWidth; // 重启动画
+      t.classList.add('odl-toast-show');
+      clearTimeout(t._odlTimer);
+      t._odlTimer = setTimeout(function () {
+        t.classList.remove('odl-toast-show');
+      }, 3500);
+    } catch (e) {}
   }
 
 
@@ -1053,7 +1069,7 @@
         batch.gcid = String(gid || '');
         if (!batch.listName) batch.listName = '当前打开的歌单';
         updateDetect();
-        setStatus('检测到歌单，点「拉取歌曲」加载列表', '', 'odl-status2');
+        setStatus('检测到歌单，正在加载…', '', 'odl-status2');
         return;
       }
     }
@@ -1114,9 +1130,9 @@
       batch.songs.forEach(function (s) { batch.selected[s.hash] = true; });
       renderList();
       updateCount();
-      setStatus('拉取完成：' + batch.songs.length + ' 首可下载' +
-        (shielded.length ? '（' + shielded.length + ' 首已被酷狗屏蔽，无法下载）' : '') +
-        '，正在标记已下载…', shielded.length ? 'err' : 'ok', 'odl-status2');
+      // 不再显示「拉取完成 N 首」这类冗余提示；仅在有被屏蔽曲目时给出警告。
+      if (shielded.length) setStatus(shielded.length + ' 首已被酷狗屏蔽，无法下载', 'err', 'odl-status2');
+      else setStatus('就绪', '', 'odl-status2');
       log('歌单拉取', batch.listid, batch.songs.length,
         '屏蔽 ' + shielded.length);
       // Marking writes the final status line, so let it run last.
@@ -1192,9 +1208,9 @@
     renderList();
     updateCount();
     if (batch.failHashes.length) renderFails();
-    setStatus('拉取完成：' + batch.songs.length + ' 首可下载' +
-      (batch.shielded ? '（' + batch.shielded + ' 首已被酷狗屏蔽，无法下载）' : '') +
-      '，其中 ' + found + ' 首已在目录里', batch.shielded ? 'err' : 'ok', 'odl-status2');
+    // 拉取与核对完成后状态栏恢复「就绪」，不再显示「其中 N 首已在目录里」。
+    if (batch.shielded) setStatus(batch.shielded + ' 首已被酷狗屏蔽，无法下载', 'err', 'odl-status2');
+    else setStatus('就绪', '', 'odl-status2');
   }
 
   function selectedSongs() {
@@ -1261,7 +1277,8 @@
           window.__odlLocalIndex({ hash: s.hash, name: s.title, author: s.artist }, fname);
         }
       } catch (e2) {}
-      setStatus('完成：' + res.path + '（' + (res.bytes / 1048576).toFixed(2) + ' MB · ' + r.quality + '）', 'ok');
+      showToast('下载完成：' + (res.path || '').split(/[\\/]/).pop());
+      setStatus('就绪', '', 'odl-status');
       log('单曲下载完成', res.path, res.bytes);
     } catch (e) {
       warn('单曲下载失败', e.message);
@@ -1359,7 +1376,8 @@
       if (batch.skipped) msg += ' · 跳过已存在 ' + batch.skipped;
       if (batch.blockedCount) msg += ' · 无权限 ' + batch.blockedCount;
       if (batch.failHashes.length) msg += ' · 失败 ' + batch.failHashes.length;
-      setStatus(msg, (batch.blockedCount || batch.failHashes.length) ? 'err' : 'ok', 'odl-status2');
+      showToast(msg, (batch.blockedCount || batch.failHashes.length) ? 'err' : 'ok');
+      setStatus('就绪', '', 'odl-status2');
     }
 
     // Keep the failures around across a restart. They are the only record of
@@ -1530,12 +1548,27 @@
     btn.id = 'odl-pl-dl-btn';
     btn.className = 'odl-pl-dl';
     btn.textContent = '⤓ 离线下载本歌单';
+    // 优先插到歌单标题区「播放」主按钮旁（歌单级操作，位置最自然）。
+    var playBtn = null;
+    var pbs = document.querySelectorAll('.primary-btn');
+    for (var pi = 0; pi < pbs.length; pi++) {
+      if ((pbs[pi].textContent || '').indexOf('播放') >= 0) { playBtn = pbs[pi]; break; }
+    }
+    // 回退锚点：列表工具栏（批量操作所在的 flex 行容器，而非它内部的小容器）。
     var batchBtn = document.querySelector('.batch-action-btn');
-    if (batchBtn && batchBtn.parentElement) {
-      btn.style.cssText = 'margin-left:16px; padding:9px 16px; border:none; border-radius:7px; background:#ff4d8d; color:#fff; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; vertical-align:middle;';
-      batchBtn.parentElement.appendChild(btn);
+    var toolbar = null;
+    if (batchBtn) {
+      var wrap = batchBtn.closest('.batch-action-container');
+      toolbar = (wrap && wrap.parentElement) ? wrap.parentElement : batchBtn.parentElement;
+    }
+    if (playBtn && playBtn.parentElement) {
+      playBtn.parentElement.insertBefore(btn, playBtn.nextSibling);
+      btn.style.marginLeft = '10px';
+    } else if (toolbar) {
+      toolbar.appendChild(btn);
+      btn.style.marginLeft = '10px';
     } else {
-      btn.style.cssText = 'position:fixed; top:88px; right:26px; z-index:9990; padding:10px 18px; border:none; border-radius:8px; background:#ff4d8d; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 6px 18px rgba(255,77,141,.35);';
+      btn.classList.add('odl-pl-dl-float');
       document.body.appendChild(btn);
     }
     btn.addEventListener('click', function (e) {
@@ -1640,6 +1673,74 @@
     el.textContent = txt;
     el.classList.toggle('odl-ok-flag', okFlag);
   }
+
+  // ===== 设置页：下载目录设置卡片 =====
+  // 目录设置已从下载面板移到 MoeKoe 设置页（面板不再显示设置项）。
+  // 设置页与面板同处 file:// 主窗口，localStorage 共享，改完 saveDir() 立即可用。
+  // 设置页是「分类切换」布局，DOM 会被重建，所以用定时器检测并补注入。
+  function injectDirSetting() {
+    var existing = document.getElementById('odl-dir-setting');
+    var hash = location.hash || '';
+    var content = (hash.indexOf('settings') >= 0) ? document.querySelector('.settings-content') : null;
+    // 只在「系统」分类显示：该分类包含「API模式」卡片；其它分类不注入，避免每个分类末尾都出现。
+    var grid = null;
+    if (content && content.textContent.indexOf('API模式') >= 0) {
+      grid = content.querySelector('.settings-cards');
+    }
+    if (!grid) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing && grid.contains(existing)) return;
+    if (existing) existing.remove();
+
+    // 复用应用 setting-card 结构，让卡片外观与其它设置卡片一致。
+    var card = document.createElement('div');
+    card.id = 'odl-dir-setting';
+    card.className = 'setting-card odl-dir-setting';
+    card.innerHTML =
+      '<div class="setting-card-header"><div class="setting-card-title">' +
+      '<i class="fas fa-download"></i><span>下载目录</span></div></div>' +
+      '<div class="odl-ds-body">' +
+      '<input id="odl-ds-input" type="text" spellcheck="false" placeholder="留空恢复默认">' +
+      '<button id="odl-ds-save" type="button">保存</button></div>' +
+      '<div class="odl-ds-hint"></div>';
+
+    // 复制应用卡片的 Vue scoped data-v 属性，让应用自带的卡片样式也作用于本卡片。
+    var sample = grid.querySelector('.setting-card');
+    if (sample) {
+      for (var i = 0; i < sample.attributes.length; i++) {
+        var an = sample.attributes[i].name;
+        if (an.indexOf('data-v-') === 0) {
+          card.setAttribute(an, '');
+          card.querySelectorAll('*').forEach(function (el) { el.setAttribute(an, ''); });
+          break;
+        }
+      }
+    }
+    grid.appendChild(card);
+
+    var input = card.querySelector('#odl-ds-input');
+    var hint = card.querySelector('.odl-ds-hint');
+    input.value = saveDir();
+    hint.textContent = '留空保存 = 恢复默认 D:\\MoeKoeMusic';
+
+    function commit() {
+      var v = input.value.trim();
+      try {
+        if (v) { v = v.replace(/[\\/]+$/, ''); localStorage.setItem('odl_save_dir', v); }
+        else localStorage.removeItem('odl_save_dir');
+      } catch (e) {}
+      input.value = saveDir();
+      hint.textContent = '已保存：' + saveDir();
+      log('保存目录已改为:', saveDir());
+    }
+    card.querySelector('#odl-ds-save').addEventListener('click', commit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    });
+  }
+  setInterval(injectDirSetting, 1200);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
