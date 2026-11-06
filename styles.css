@@ -59,28 +59,20 @@ html.dark {
 }
 
 /* ---------- 播放条入口按钮 ---------- */
+/* 下载按钮复用播放条 extra-btn 的尺寸与背景（见 content.js 中 class 与 data-v 复制），
+   这里只保留布局与 hover 配色，不写死尺寸，保证与其它播放条图标一致。 */
 .odl-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   margin: 0 4px;
-  border: none;
-  border-radius: 999px;
-  background: var(--odl-chip);
-  color: var(--odl-text);
-  font-size: 14px;
-  line-height: 1;
   cursor: pointer;
-  transition: color .2s ease, background .2s ease, transform .2s ease;
+  transition: color .2s ease;
 }
 
 .odl-toggle:hover {
-  background: var(--odl-accent-soft);
   color: var(--odl-accent);
-  transform: translateY(-1px);
 }
 
 /* ---------- 面板容器（缩小） ---------- */
@@ -89,7 +81,7 @@ html.dark {
   right: 384px;
   bottom: 92px;
   z-index: 99999;
-  width: 320px;
+  width: 290px;
   max-height: 72vh;
   overflow-y: auto;
   padding: 12px;
@@ -653,4 +645,41 @@ html.dark {
   line-height: 1.5;
   color: var(--odl-subtle);
   word-break: break-all;
+}
+
+/* ============================================================
+   顶部居中气泡通知（下载完成等），自动消失
+   ============================================================ */
+.odl-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  z-index: 100000;
+  max-width: 62vw;
+  padding: 10px 20px;
+  border: 1px solid var(--odl-edge);
+  border-radius: 999px;
+  background: var(--odl-surface-strong);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow: var(--odl-shadow);
+  color: var(--odl-text);
+  font-family: var(--odl-font);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  word-break: break-all;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-14px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+
+.odl-toast.odl-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.odl-toast.odl-toast-err {
+  color: var(--odl-err);
 }

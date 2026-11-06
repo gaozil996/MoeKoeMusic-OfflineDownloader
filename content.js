@@ -368,21 +368,23 @@
 
   function renderLiveProgress() {
     if (!live.on) return;
-    var bar = document.getElementById('odl-bar-in');
-    var txt = document.getElementById('odl-progress-txt');
-    if (!bar || !txt) return;
-    var wrap = document.getElementById('odl-progress');
-    if (wrap) wrap.classList.remove('odl-hidden');
+    var bars = document.querySelectorAll('.odl-bar-in');
+    var txts = document.querySelectorAll('.odl-progress-txt');
+    if (!bars.length) return;
+    // 单曲与批量视图都有进度条，统一按 class 更新；隐藏视图里的那条因父视图隐藏而不可见。
+    document.querySelectorAll('.odl-progress').forEach(function (w) { w.classList.remove('odl-hidden'); });
 
     var base = batch.total ? (batch.done / batch.total * 100) : 0;
     var within = live.total ? (live.received / live.total * 100) : 0;
     var pct = batch.total ? Math.min(100, base + (within / batch.total)) : within;
 
-    bar.style.width = pct.toFixed(1) + '%';
     var mb = (live.received / 1048576).toFixed(2);
     var totalTxt = live.total ? (' / ' + (live.total / 1048576).toFixed(1) + ' MB') : ' MB';
-    txt.textContent = '第 ' + (batch.done + 1) + ' / ' + batch.total + ' 首 · ' + mb + totalTxt
-      + (batch.fails.length ? ' · 失败 ' + batch.fails.length : '');
+    var text = batch.total
+      ? ('第 ' + (batch.done + 1) + ' / ' + batch.total + ' 首 · ' + mb + totalTxt + (batch.fails.length ? ' · 失败 ' + batch.fails.length : ''))
+      : (mb + totalTxt);
+    bars.forEach(function (b) { b.style.width = pct.toFixed(1) + '%'; });
+    txts.forEach(function (t) { t.textContent = text; });
   }
 
   // status 走 6 秒就够；download 由 bridge 侧 20 秒静默看门狗负责，
@@ -781,9 +783,9 @@
 
     var btn = document.createElement('button');
     btn.id = 'odl-toggle';
-    btn.className = 'odl-toggle';
+    btn.className = 'extra-btn odl-toggle';
     btn.title = '离线下载器';
-    btn.textContent = '⤓';
+    btn.innerHTML = '<i class="fas fa-download"></i>';
     btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -800,6 +802,19 @@
     });
 
     var host = document.querySelector('.extra-controls');
+    // 让下载按钮与播放条其它 extra-btn 同尺寸、同风格（复制 scoped data-v 属性）。
+    var sibling = host ? host.querySelector('.extra-btn') : null;
+    if (sibling) {
+      for (var si = 0; si < sibling.attributes.length; si++) {
+        var an = sibling.attributes[si].name;
+        if (an.indexOf('data-v-') === 0) {
+          btn.setAttribute(an, '');
+          var iconEl = btn.querySelector('i');
+          if (iconEl) iconEl.setAttribute(an, '');
+          break;
+        }
+      }
+    }
     if (host) {
       var vfx = document.getElementById('vfx-toggle');
       if (vfx) host.insertBefore(btn, vfx);
@@ -837,6 +852,8 @@
       html += '<button class="odl-q" data-q="' + QUALITIES[i].id + '">' + QUALITIES[i].label + '</button>';
     }
     html += '</div><div class="odl-actions"><button class="odl-go" id="odl-go">下载这首</button></div>';
+    html += '<div class="odl-progress odl-hidden"><div class="odl-bar"><div class="odl-bar-in"></div></div>' +
+      '<div class="odl-progress-txt">0 MB</div></div>';
     html += '<div class="odl-status" id="odl-status">就绪</div>';
     html += '</div>';
 
@@ -938,6 +955,12 @@
     renderMode();
     syncQualityUI();
     renderSong();
+
+    // 切换路由（上一级 / 下一级页面）时自动收起下载面板，避免一直悬浮在页面上。
+    window.addEventListener('hashchange', function () {
+      var p = document.getElementById('odl-panel');
+      if (p) p.classList.add('odl-hidden');
+    });
   }
 
   function renderMode() {
@@ -961,6 +984,26 @@
     if (!el) return;
     el.textContent = text;
     el.className = 'odl-status' + (kind === 'err' ? ' odl-err' : kind === 'ok' ? ' odl-ok' : '');
+  }
+
+  // 下载完成等消息用「顶部居中气泡」提示，几秒后自动消失，不占用面板状态栏。
+  function showToast(text, kind) {
+    try {
+      var t = document.getElementById('odl-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'odl-toast';
+        document.body.appendChild(t);
+      }
+      t.className = 'odl-toast' + (kind === 'err' ? ' odl-toast-err' : '');
+      t.textContent = text;
+      void t.offsetWidth; // 重启动画
+      t.classList.add('odl-toast-show');
+      clearTimeout(t._odlTimer);
+      t._odlTimer = setTimeout(function () {
+        t.classList.remove('odl-toast-show');
+      }, 3500);
+    } catch (e) {}
   }
 
 
@@ -1087,9 +1130,9 @@
       batch.songs.forEach(function (s) { batch.selected[s.hash] = true; });
       renderList();
       updateCount();
-      setStatus('拉取完成：' + batch.songs.length + ' 首可下载' +
-        (shielded.length ? '（' + shielded.length + ' 首已被酷狗屏蔽，无法下载）' : '') +
-        '，正在标记已下载…', shielded.length ? 'err' : 'ok', 'odl-status2');
+      // 不再显示「拉取完成 N 首」这类冗余提示；仅在有被屏蔽曲目时给出警告。
+      if (shielded.length) setStatus(shielded.length + ' 首已被酷狗屏蔽，无法下载', 'err', 'odl-status2');
+      else setStatus('就绪', '', 'odl-status2');
       log('歌单拉取', batch.listid, batch.songs.length,
         '屏蔽 ' + shielded.length);
       // Marking writes the final status line, so let it run last.
@@ -1165,9 +1208,9 @@
     renderList();
     updateCount();
     if (batch.failHashes.length) renderFails();
-    setStatus('拉取完成：' + batch.songs.length + ' 首可下载' +
-      (batch.shielded ? '（' + batch.shielded + ' 首已被酷狗屏蔽，无法下载）' : '') +
-      '，其中 ' + found + ' 首已在目录里', batch.shielded ? 'err' : 'ok', 'odl-status2');
+    // 拉取与核对完成后状态栏恢复「就绪」，不再显示「其中 N 首已在目录里」。
+    if (batch.shielded) setStatus(batch.shielded + ' 首已被酷狗屏蔽，无法下载', 'err', 'odl-status2');
+    else setStatus('就绪', '', 'odl-status2');
   }
 
   function selectedSongs() {
@@ -1234,7 +1277,8 @@
           window.__odlLocalIndex({ hash: s.hash, name: s.title, author: s.artist }, fname);
         }
       } catch (e2) {}
-      setStatus('完成：' + res.path + '（' + (res.bytes / 1048576).toFixed(2) + ' MB · ' + r.quality + '）', 'ok');
+      showToast('下载完成：' + (res.path || '').split(/[\\/]/).pop());
+      setStatus('就绪', '', 'odl-status');
       log('单曲下载完成', res.path, res.bytes);
     } catch (e) {
       warn('单曲下载失败', e.message);
@@ -1332,7 +1376,8 @@
       if (batch.skipped) msg += ' · 跳过已存在 ' + batch.skipped;
       if (batch.blockedCount) msg += ' · 无权限 ' + batch.blockedCount;
       if (batch.failHashes.length) msg += ' · 失败 ' + batch.failHashes.length;
-      setStatus(msg, (batch.blockedCount || batch.failHashes.length) ? 'err' : 'ok', 'odl-status2');
+      showToast(msg, (batch.blockedCount || batch.failHashes.length) ? 'err' : 'ok');
+      setStatus('就绪', '', 'odl-status2');
     }
 
     // Keep the failures around across a restart. They are the only record of
